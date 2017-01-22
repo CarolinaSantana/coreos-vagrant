@@ -1,0 +1,17 @@
+[Unit] 
+  Description=PostgreSQL database 
+  After=docker.service 
+  Requires=docker.service 
+
+[Service] 
+  TimeoutStartSec=0 
+  ExecStartPre=/usr/bin/sh -c "export POSTGRES_USER=postgres" 
+  ExecStartPre=/usr/bin/sh -c "export POSTGRES_PASSWORD=postgres" 
+  ExecStartPre=-/usr/bin/docker kill some-postgres 
+  ExecStartPre=-/usr/bin/docker rm some-postgres 
+  ExecStartPre=/usr/bin/docker pull postgres 
+  ExecStart=/usr/bin/docker run --rm --name some-postgres -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" -p 5432:5432 postgres 
+  ExecStop=/usr/bin/docker stop some-postgres 
+
+[Install] 
+  WantedBy=multi-user.target
