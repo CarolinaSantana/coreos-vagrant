@@ -1,0 +1,21 @@
+[Unit] 
+  Description=app-task container that runs the server puma
+  After=docker.service postgresql.service volume-public.service app-job.service
+  Requires=docker.service postgresql.service volume-public.service app-job.service
+
+[Service] 
+  TimeoutStartSec=0 
+  ExecStartPre=/usr/bin/sh -c "export POSTGRES_USER=postgres" 
+  ExecStartPre=/usr/bin/sh -c "export POSTGRES_PASSWORD=postgres" 
+  ExecStartPre=-/usr/bin/docker kill app-task 
+  ExecStartPre=-/usr/bin/docker rm app-task
+  ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
+  ExecStart=/usr/bin/docker run --rm --name app-task \
+  -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+  -w /usr/src/app -v volume-public:/usr/src/app/public --link some-postgres:db \
+  carolina/sample_app_rails_4_image:latest
+  ExecStop=/usr/bin/docker stop app-task
+
+[Install] 
+  WantedBy=multi-user.target
+

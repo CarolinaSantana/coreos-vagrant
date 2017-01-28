@@ -1,0 +1,20 @@
+[Unit] 
+  Description=executable app-job container that creates, migrates, seeds and populates the database
+  After=docker.service postgresql.service volume-public.service
+  Requires=docker.service postgresql.service volume-public.service
+
+[Service] 
+  TimeoutStartSec=0 
+  ExecStartPre=/usr/bin/sh -c "export POSTGRES_USER=postgres" 
+  ExecStartPre=/usr/bin/sh -c "export POSTGRES_PASSWORD=postgres" 
+  ExecStartPre=-/usr/bin/docker kill app-job 
+  ExecStartPre=-/usr/bin/docker rm app-job 
+  ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
+  ExecStart=/usr/bin/docker run --rm --name app-job --entrypoint /setup.sh \
+  -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+  -w /usr/src/app -v volume-public:/usr/src/app/public --link some-postgres:db \
+  carolina/sample_app_rails_4_image:latest
+
+[Install] 
+  WantedBy=multi-user.target
+

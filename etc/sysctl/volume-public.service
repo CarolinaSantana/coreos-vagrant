@@ -1,0 +1,12 @@
+[Unit] 
+  Description= volume-public share between app-job, app-task and some-nginx 
+  After=docker.service postgresql.service
+  Requires=docker.service 
+
+[Service] 
+  TimeoutStartSec=0 
+  ExecStartPre=-/usr/bin/docker volume rm volume-public 
+  ExecStart=/usr/bin/docker volume create --name volume-public
+
+[Install] 
+  WantedBy=multi-user.target
