@@ -50,6 +50,8 @@ Vagrant.configure("2") do |config|
   config.ssh.insert_key = false
   # forward ssh agent to easily ssh into the different machines
   config.ssh.forward_agent = true
+  
+  config.vm.network "forwarded_port", guest: 80, host: 8080
 
   config.vm.box = "coreos-%s" % $update_channel
   if $image_version != "current"
@@ -61,6 +63,7 @@ Vagrant.configure("2") do |config|
     config.vm.provider vmware do |v, override|
       override.vm.box_url = "https://storage.googleapis.com/%s.release.core-os.net/amd64-usr/%s/coreos_production_vagrant_vmware_fusion.json" % [$update_channel, $image_version]
     end
+  config.vm.provision "shell", path: "coreos-service-units-deploy.sh"
   end
 
   config.vm.provider :virtualbox do |v|
