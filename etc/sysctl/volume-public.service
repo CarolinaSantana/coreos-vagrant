@@ -5,9 +5,7 @@
 
 [Service] 
   TimeoutStartSec=0 
-  ExecStartPre=-/usr/bin/docker volume inspect some-postgres
   ExecStart=/usr/bin/docker volume create --name volume-public
-  #ExecStop=/usr/bin/docker rm volume-public -f
 
 [Install] 
   WantedBy=multi-user.target
