@@ -118,3 +118,36 @@ Follow the [Enable Remote API instructions][coreos-enabling-port-forwarding] to 
 Then you can then use the `docker` command from your local shell by setting `DOCKER_HOST`:
 
     export DOCKER_HOST=tcp://localhost:2375
+
+# CoreOS Vagrant deploying sample app Ruby Application
+
+Apply the use of the containers oriented operating system CoreOS creating systemd service units responsible for performing the necessary tasks for the correct operation of the Docker containers in which the application is divided. In this way, the main idea is deploy the next structure, manually and automatically:
+
+![alt tag](https://github.com/carmelocuenca/csantana_project/blob/master/tfm_doc/images/figures/coreosdiagram.png?raw=true)
+
+First of all you have to copy the *user-data* and *config.rb* files:
+
+    cd coreos-vagrant
+    cp user-data.sampleapp.sample user-data
+    cp config.rb.sample config.rb
+
+## Manual deploy
+
+The 5 service units have been configured and written so the next step is prepare the deployment. To recognize the units these must be located under the systemd service. So the first step will be copy them to the */etc/systemd/system/directory*. The operation of the units passes through two states. The first state is the service enable, this will create the symbolic link of the unit for all users. The second state is the beginning of it.
+That said, a script called **coreos-service-units-deploy.sh is created**, with permissions chmod + x, which will be in charge of making the copy of the units under systemd and that will enable and start the services.
+
+In order of this script be executed when the CoreOS machine is started, a line will be added to the Vagrantfile file, which will indicate the path of the file to make use of the file and provision the machine with the directives included in it.
+
+Finally, you have to execute this to reload the machine, provision it with the script and access to the machine:
+
+    ./coreos-deploy.sh
+
+## Automatic deploy
+
+The ideal deployment of the application through their service units would be automatically. This is implemented in CoreOS from the file named cloud-config that corresponds to user-data so that it specifies the order of the units to be deployed and the enable and start actions of the services to which they refer.
+
+As you can see, it is no longer necessary to copy the files from the local drives to the CoreOS machine. Now, you use these files simply and those corresponding to fleet_machines.env and nginx.conf from the shared directory. Therefore the line of provision of the script in the Vagranfile file is no longer necessary. So, comment this line **config.vm.provision "shell", path: "coreos-service-units-deploy.sh"** in Vagrantfile.
+
+Finally, you have to execute this to reload the machine, provision the changes and access to the machine:
+
+    ./coreos-deploy.sh
