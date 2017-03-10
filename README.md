@@ -131,16 +131,16 @@ First of all you have to copy the *user-data* and *config.rb* files:
     cp user-data.sampleapp.sample user-data
     cp config.rb.sample config.rb
 
-As a nfs share folder is being used in both cases you need to install *nfs-kernel-server*:
-
-    sudo apt install nfs-kernel-server
-
 ## Manual deploy
 
 The 5 service units have been configured and written so the next step is prepare the deployment. To recognize the units these must be located under the systemd service. So the first step will be copy them to the */etc/systemd/system/directory*. The operation of the units passes through two states. The first state is the service enable, this will create the symbolic link of the unit for all users. The second state is the beginning of it.
 That said, a script called **coreos-service-units-deploy.sh is created**, with permissions chmod + x, which will be in charge of making the copy of the units under systemd and that will enable and start the services.
 
 In order of this script be executed when the CoreOS machine is started, a line will be added to the Vagrantfile file, which will indicate the path of the file to make use of the file and provision the machine with the directives included in it.
+
+As a nfs share folder is being used you need to install *nfs-kernel-server*:
+
+    sudo apt install nfs-kernel-server
 
 Finally, you have to execute this to reload the machine, provision it with the script and access to the machine:
 

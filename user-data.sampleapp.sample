@@ -1,6 +1,12 @@
 #cloud-config
 
 ---
+write_files:
+  - path: "/etc/fleet_machines.env"
+    permissions: "0644"
+    content: |
+      POSTGRES_USER=postgres
+      POSTGRES_PASSWORD=postgres
 coreos:
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379

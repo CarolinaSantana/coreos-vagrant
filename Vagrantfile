@@ -51,8 +51,6 @@ Vagrant.configure("2") do |config|
   # forward ssh agent to easily ssh into the different machines
   config.ssh.forward_agent = true
   
-  config.vm.network "forwarded_port", guest: 80, host: 8080
-
   config.vm.box = "coreos-%s" % $update_channel
   if $image_version != "current"
       config.vm.box_version = $image_version
