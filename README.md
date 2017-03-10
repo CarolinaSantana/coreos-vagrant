@@ -131,6 +131,10 @@ First of all you have to copy the *user-data* and *config.rb* files:
     cp user-data.sampleapp.sample user-data
     cp config.rb.sample config.rb
 
+As a nfs share folder is being used in both cases you need to install *nfs-kernel-server*:
+
+    sudo apt install nfs-kernel-server
+
 ## Manual deploy
 
 The 5 service units have been configured and written so the next step is prepare the deployment. To recognize the units these must be located under the systemd service. So the first step will be copy them to the */etc/systemd/system/directory*. The operation of the units passes through two states. The first state is the service enable, this will create the symbolic link of the unit for all users. The second state is the beginning of it.
