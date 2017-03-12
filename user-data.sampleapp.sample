@@ -4,9 +4,31 @@
 write_files:
   - path: "/etc/fleet_machines.env"
     permissions: "0644"
+    encoding: "base64"
     content: |
-      POSTGRES_USER=postgres
-      POSTGRES_PASSWORD=postgres
+      UE9TVEdSRVNfVVNFUj1wb3N0Z3Jlcw0KUE9TVEdSRVNfUEFTU1dPUkQ9cG9zdGdyZXM=
+  - path: "/etc/nginx.conf"
+    permissions: "0644"
+    content: |
+      server {
+
+	listen 80;
+
+	root /usr/src/app/public;
+
+	location / {
+	  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	  proxy_set_header Host $http_host;
+	  proxy_redirect off;
+	  try_files $uri /page_cache/$uri /page_cache/$uri.html @app;
+	}
+	 
+	location @app{
+	  proxy_pass http://app:9292;
+	  break;
+	}
+
+      }
 coreos:
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379
@@ -70,7 +92,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0
-      EnvironmentFile=/home/coreos/share/etc/sysctl/fleet_machines.env
+      EnvironmentFile=/etc/fleet_machines.env
       ExecStartPre=-/usr/bin/docker kill some-postgres 
       ExecStartPre=-/usr/bin/docker rm some-postgres 
       ExecStartPre=/usr/bin/docker pull postgres 
@@ -92,7 +114,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0 
-      EnvironmentFile=/home/coreos/share/etc/sysctl/fleet_machines.env
+      EnvironmentFile=/etc/fleet_machines.env
       ExecStartPre=-/usr/bin/docker kill app-job 
       ExecStartPre=-/usr/bin/docker rm app-job 
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
@@ -114,7 +136,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0 
-      EnvironmentFile=/home/coreos/share/etc/sysctl/fleet_machines.env
+      EnvironmentFile=/etc/fleet_machines.env
       ExecStartPre=-/usr/bin/docker kill app-task 
       ExecStartPre=-/usr/bin/docker rm app-task
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
@@ -142,7 +164,7 @@ coreos:
       ExecStartPre=-/usr/bin/docker rm some-nginx
       ExecStartPre=/usr/bin/docker pull nginx 
       ExecStart=/usr/bin/docker run --rm --name some-nginx \
-      -v "/home/coreos/share/etc/sysctl/nginx.conf:/etc/nginx/conf.d/default.conf" \
+      -v "/etc/nginx.conf:/etc/nginx/conf.d/default.conf" \
       -p "80:80" --link "app-task:app" -v "volume-public:/usr/src/app/public" nginx 
       ExecStop=/usr/bin/docker stop some-nginx
 
