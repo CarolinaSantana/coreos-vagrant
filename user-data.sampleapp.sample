@@ -2,11 +2,11 @@
 
 ---
 write_files:
-  - path: "/etc/fleet_machines.env"
+  - path: "/etc/postgres-credentials.env"
     permissions: "0644"
-    encoding: "base64"
     content: |
-      UE9TVEdSRVNfVVNFUj1wb3N0Z3Jlcw0KUE9TVEdSRVNfUEFTU1dPUkQ9cG9zdGdyZXM=
+      POSTGRES_USER=postgres
+      POSTGRES_PASSWORD=postgres
   - path: "/etc/nginx.conf"
     permissions: "0644"
     content: |
@@ -87,7 +87,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0
-      EnvironmentFile=/etc/fleet_machines.env
+      EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill some-postgres 
       ExecStartPre=-/usr/bin/docker rm some-postgres 
       ExecStartPre=/usr/bin/docker pull postgres 
@@ -109,7 +109,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0 
-      EnvironmentFile=/etc/fleet_machines.env
+      EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill app-job 
       ExecStartPre=-/usr/bin/docker rm app-job 
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
@@ -131,7 +131,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0 
-      EnvironmentFile=/etc/fleet_machines.env
+      EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill app-task 
       ExecStartPre=-/usr/bin/docker rm app-task
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
