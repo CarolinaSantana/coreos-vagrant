@@ -61,7 +61,7 @@ Vagrant.configure("2") do |config|
     config.vm.provider vmware do |v, override|
       override.vm.box_url = "https://storage.googleapis.com/%s.release.core-os.net/amd64-usr/%s/coreos_production_vagrant_vmware_fusion.json" % [$update_channel, $image_version]
     end
-  config.vm.provision "shell", path: "coreos-service-units-deploy.sh"
+  #config.vm.provision "shell", path: "coreos-service-units-deploy.sh"
   end
 
   config.vm.provider :virtualbox do |v|
