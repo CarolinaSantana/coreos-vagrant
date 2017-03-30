@@ -155,3 +155,5 @@ As you can see, it is no longer necessary to copy the files from the local drive
 Finally, you have to execute this to reload the machine, provision the changes and access to the machine:
 
     ./coreos-deploy.sh
+
+
