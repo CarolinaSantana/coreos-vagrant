@@ -1,6 +1,7 @@
 .vagrant/
 log/
 user-data
+user-data-*
 config.rb
 *~
 

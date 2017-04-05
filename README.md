@@ -119,16 +119,15 @@ Then you can then use the `docker` command from your local shell by setting `DOC
 
     export DOCKER_HOST=tcp://localhost:2375
 
-# CoreOS Vagrant deploying sample app Ruby Application
+# CoreOS Vagrant deploying sample app Ruby Application in VirtualBox and VMware
 
 Apply the use of the containers oriented operating system CoreOS creating systemd service units responsible for performing the necessary tasks for the correct operation of the Docker containers in which the application is divided. In this way, the main idea is deploy the next structure, manually and automatically:
 
 ![alt tag](https://github.com/carmelocuenca/csantana_project/blob/master/tfm_doc/images/figures/coreosdiagram.png?raw=true)
 
-First of all you have to copy the *user-data* and *config.rb* files:
+First of all you have to copy the *config.rb* file:
 
     cd coreos-vagrant
-    cp user-data.sampleapp.sample user-data
     cp config.rb.sample config.rb
 
 ## Manual deploy
@@ -142,9 +141,19 @@ As a nfs share folder is being used you need to install *nfs-kernel-server*:
 
     sudo apt install nfs-kernel-server
 
-Finally, you have to execute this to reload the machine, provision it with the script and access to the machine:
+Finally, you have to execute this to up the machine, provision it with the script and access to the machine. Vagrantfile has been configured to uses the VirtualBox or VMware version of *user-data*.
 
-    ./coreos-deploy.sh
+Using Virtualbox. Remember that the default provider is VirtualBox and *vagrant up* is enough:
+
+    vagrant up --provider=virtualbox
+
+Using VMware. Choose the one you are going to work with:
+
+Option 1:
+    vagrant up --provider=vmware_fusion 
+     
+Option 2:
+    vagrant up --provider=vmware_workstation
 
 ## Automatic deploy
 
@@ -152,8 +161,18 @@ The ideal deployment of the application through their service units would be aut
 
 As you can see, it is no longer necessary to copy the files from the local drives to the CoreOS machine. Now, you use these files simply and those corresponding to fleet_machines.env and nginx.conf from the shared directory. Therefore the line of provision of the script in the Vagranfile file is no longer necessary. So, comment this line **config.vm.provision "shell", path: "coreos-service-units-deploy.sh"** in Vagrantfile.
 
-Finally, you have to execute this to reload the machine, provision the changes and access to the machine:
+Finally, you have to execute this to up the machine, provision it with the script and access to the machine. Vagrantfile has been configured to uses the VirtualBox or VMware version of *user-data*.
 
-    ./coreos-deploy.sh
+Using Virtualbox. Remember that the default provider is VirtualBox and *vagrant up* is enough:
+
+    vagrant up --provider=virtualbox
+
+Using VMware. Choose the one you are going to work with:
+
+Option 1:
+    vagrant up --provider=vmware_fusion 
+     
+Option 2:
+    vagrant up --provider=vmware_workstation
 
 
