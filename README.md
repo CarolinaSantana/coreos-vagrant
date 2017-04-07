@@ -177,10 +177,10 @@ First of all you have to copy the *config.rb* file:
 
 In order to log in to the AWS account add a local executable file called in which it specifies your AWS credentials information, with the intention of being treated as environment variables in *Vagrantfile*. The content must have the following structure:
 
-export AWS_KEY='XXXXXXXXXXXXXXXXXXX'
-export AWS_SECRET='XXXXXXXXXXXXXXXXXXXXXXXXXXX'
-export AWS_KEYNAME='XXXXXX'
-export AWS_KEYPATH='XXXXXXXXXXXXXXXXXXXXXX'
+    export AWS_KEY='XXXXXXXXXXXXXXXXXXX'
+    export AWS_SECRET='XXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    export AWS_KEYNAME='XXXXXX'
+    export AWS_KEYPATH='XXXXXXXXXXXXXXXXXXXXXX'
 
 Then run it:
 
@@ -236,19 +236,18 @@ To check the virtual network:
     
 To check virtual machines have connection with other virtual machines containers:
 
--Access to, for example, the virtual machine *core-03*:
+- Access to, for example, the virtual machine *core-03*:
 
     vagrant ssh core-03
 
--Inspect, for example, *some-postgres* container to know its IP address:
+- Inspect, for example, *some-postgres* container to know its IP address:
 
     # docker inspect some-postgress
 
--Test connection between *core-01* and *some-postgres* *core-03* container:
+- Test connection between *core-01* and *some-postgres* *core-03* container:
 
     # ping *some-postgres--core-03--IP-address*
 
 Access to the service:
 
-    for i in 1 2 3; do vagrant ssh core-0$i -c 'curl http://localhost:80 \
-| tail -n 15'; done
+    for i in 1 2 3; do vagrant ssh core-0$i -c 'curl http://localhost:80 | tail -n 15'; done
