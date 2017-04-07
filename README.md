@@ -210,11 +210,11 @@ Execute this to up the infraestructure and then access to the machine:
 
 To check the cluster-health:
     
-    # etcdctl cluster-health
+    etcdctl cluster-health
 
 To check the virtual network:
 
-    # sudo systemctl status flanneld
+    sudo systemctl status flanneld
     
 Access to the service:
 
@@ -242,11 +242,11 @@ To check virtual machines have connection with other virtual machines containers
 
 - Inspect, for example, *some-postgres* container to know its IP address:
 
-    # docker inspect some-postgress
+    docker inspect some-postgress
 
 - Test connection between *core-01* and *some-postgres* *core-03* container:
 
-    # ping *some-postgres--core-03--IP-address*
+    ping *some-postgres--core-03--IP-address*
 
 Access to the service:
 
