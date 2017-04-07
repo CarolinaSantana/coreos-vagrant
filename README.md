@@ -119,7 +119,7 @@ Then you can then use the `docker` command from your local shell by setting `DOC
 
     export DOCKER_HOST=tcp://localhost:2375
 
-# CoreOS Vagrant deploying sample app Ruby Application in VirtualBox and VMware
+# CoreOS Vagrant deploying sample app Ruby Application in VirtualBox
 
 Apply the use of the containers oriented operating system CoreOS creating systemd service units responsible for performing the necessary tasks for the correct operation of the Docker containers in which the application is divided. In this way, the main idea is deploy the next structure, manually and automatically:
 
@@ -129,6 +129,9 @@ First of all you have to copy the *config.rb* file:
 
     cd coreos-vagrant
     cp config.rb.sample config.rb
+
+*Vagrantfile* has been configured to uses the *user-data* VirtualBox version when this provider is choosen. This *cloud-config* is called *user-data.sampleapp.virtualbox*.
+
 
 ## Manual deploy
 
@@ -141,19 +144,14 @@ As a nfs share folder is being used you need to install *nfs-kernel-server*:
 
     sudo apt install nfs-kernel-server
 
-Finally, you have to execute this to up the machine, provision it with the script and access to the machine. Vagrantfile has been configured to uses the VirtualBox or VMware version of *user-data*.
-
-Using Virtualbox. Remember that the default provider is VirtualBox and *vagrant up* is enough:
+Finally, you have to execute this to up the machine, provision it with the script and access to the machine. Remember that the default provider is VirtualBox and *vagrant up* is enough.
 
     vagrant up --provider=virtualbox
+    vagrant ssh core-01
 
-Using VMware. Choose the one you are going to work with:
+Access to the service:
 
-Option 1:
-    vagrant up --provider=vmware_fusion 
-     
-Option 2:
-    vagrant up --provider=vmware_workstation
+    curl http://localhost:80
 
 ## Automatic deploy
 
@@ -161,18 +159,96 @@ The ideal deployment of the application through their service units would be aut
 
 As you can see, it is no longer necessary to copy the files from the local drives to the CoreOS machine. Now, you use these files simply and those corresponding to fleet_machines.env and nginx.conf from the shared directory. Therefore the line of provision of the script in the Vagranfile file is no longer necessary. So, comment this line **config.vm.provision "shell", path: "coreos-service-units-deploy.sh"** in Vagrantfile.
 
-Finally, you have to execute this to up the machine, provision it with the script and access to the machine. Vagrantfile has been configured to uses the VirtualBox or VMware version of *user-data*.
-
-Using Virtualbox. Remember that the default provider is VirtualBox and *vagrant up* is enough:
+Finally, you have to execute this to up the machine, provision it with the script and access to the machine. Remember that the default provider is VirtualBox and *vagrant up* is enough.
 
     vagrant up --provider=virtualbox
+    vagrant ssh core-01
 
-Using VMware. Choose the one you are going to work with:
+Access to the service:
 
-Option 1:
-    vagrant up --provider=vmware_fusion 
-     
-Option 2:
-    vagrant up --provider=vmware_workstation
+    curl http://localhost:80
+
+# CoreOS Vagrant deploying sample app Ruby Application in Amazon Web Services (AWS)
+
+First of all you have to copy the *config.rb* file:
+
+    cd coreos-vagrant
+    cp config.rb.sample config.rb
+
+In order to log in to the AWS account add a local executable file called in which it specifies your AWS credentials information, with the intention of being treated as environment variables in *Vagrantfile*. The content must have the following structure:
+
+export AWS_KEY='XXXXXXXXXXXXXXXXXXX'
+export AWS_SECRET='XXXXXXXXXXXXXXXXXXXXXXXXXXX'
+export AWS_KEYNAME='XXXXXX'
+export AWS_KEYPATH='XXXXXXXXXXXXXXXXXXXXXX'
+
+Then run it:
+
+    . *path-to-your-file*
+
+Change in *Vagrantfile* to your particular values referred to your AWS account. This values are:
+
+- *access_key_id*
+- *secret_access_key*
+- *keypair_name*
+- *aws_region*
+- *aws_availability_zone*
+- *aws_subnet_id*
+- *aws_security_groups*
+- *aws_ami*
+- *aws_instance_type*
+
+*Vagrantfile* has been configured to uses the *user-data* AWS version when this provider is choosen. This *cloud-config* is called *user-data.sampleapp.aws*.
 
 
+## 1 instance cluster
+
+Execute this to up the infraestructure and then access to the machine:
+
+    vagrant up --provider=aws
+    vagrant ssh core-01
+
+To check the cluster-health:
+    
+    # etcdctl cluster-health
+
+To check the virtual network:
+
+    # sudo systemctl status flanneld
+    
+Access to the service:
+
+    curl http://localhost:80
+
+## 3 instances cluster
+
+Execute this to up the infraestructure:
+
+    vagrant up --provider=aws
+
+To check the cluster-health:
+    
+    for i in 1 2 3; do vagrant ssh core-0$i -c 'etcdctl cluster-health'; done
+
+To check the virtual network:
+
+    for i in 1 2 3; do vagrant ssh core-0$i -c 'sudo systemctl flanneld | head -n16'; done
+    
+To check virtual machines have connection with other virtual machines containers:
+
+-Access to, for example, the virtual machine *core-03*:
+
+    vagrant ssh core-03
+
+-Inspect, for example, *some-postgres* container to know its IP address:
+
+    # docker inspect some-postgress
+
+-Test connection between *core-01* and *some-postgres* *core-03* container:
+
+    # ping *some-postgres--core-03--IP-address*
+
+Access to the service:
+
+    for i in 1 2 3; do vagrant ssh core-0$i -c 'curl http://localhost:80 \
+| tail -n 15'; done
