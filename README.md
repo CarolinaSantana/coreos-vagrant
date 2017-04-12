@@ -170,7 +170,11 @@ Access to the service:
 
 # CoreOS Vagrant deploying sample app Ruby Application in Amazon Web Services (AWS)
 
-First of all you have to copy the *config.rb* file:
+First of all, you have to install the plugin that allows you to use the AWS provider:
+
+    vagrant plugin install vagrant-aws
+
+Then, you have to copy the *config.rb* file:
 
     cd coreos-vagrant
     cp config.rb.sample config.rb
