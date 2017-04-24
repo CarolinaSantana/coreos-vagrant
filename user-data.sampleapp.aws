@@ -77,7 +77,7 @@ write_files:
       ExecStart=/usr/bin/docker run --rm --name some-postgres \
       -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
       -v "volume-public:/var/lib/posgresql" -p "5432:5432" postgres 
-      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" some-postgres) == "=true" ]; do sleep 1; done; /usr/bin/etcdctl set /skydns/local/sampleapp/db  "{ \\"host\\": \\"$(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" some-postgres)\\"}" '
+      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" some-postgres) == "=true" ]; do sleep 1; done; /usr/bin/etcdctl set /skydns/local/sampleapp/some-postgres  "{ \\"host\\": \\"db.sampleapp.local.\\"}" ; /usr/bin/etcdctl set /skydns/local/sampleapp/db  "{ \\"host\\": \\"$(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" some-postgres)\\" , \\"port\\":5432}"'
       ExecStop=/usr/bin/docker stop some-postgres
 
       [X-Fleet]
