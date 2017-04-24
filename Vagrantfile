@@ -171,6 +171,12 @@ Vagrant.configure("2") do |config|
           user_data_specific	=	"#{CLOUD_CONFIG_PATH}-#{i}"
           require 'yaml'
           data = YAML.load(IO.readlines(CLOUD_CONFIG_PATH)[1..-1].join)
+          if data['coreos'].key? 'fleet' and i==1
+            data['coreos']['fleet']['metadata'] = 'compute=web'
+          end
+          if data['coreos'].key? 'fleet' and i==2
+            data['coreos']['fleet']['metadata'] = 'compute=db'
+          end
           yaml = YAML.dump(data)
           File.open(user_data_specific, 'w') do |file|
             file.write("#cloud-config\n\n#{yaml}")
