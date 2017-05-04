@@ -20,7 +20,7 @@ write_files:
           try_files $uri /page_cache/$uri /page_cache/$uri.html @app;
         }
         location @app{
-          proxy_pass http://app:9292;
+          proxy_pass http://app;
           break;
         }
       }
@@ -31,28 +31,32 @@ write_files:
       src = "nginx.conf.tmpl"
       dest = "/etc/nginx/nginx.conf"
       keys = [ "/services/app" ]
-      reload_cmd = "curl --unix-socket /var/run/docker.sock -X POST http:/v1.24/containers/some-nginx/restart"
+      reload_cmd = ""
   - path: "/etc/nginx.conf.tmpl"
     permissions: "0644"
     content: |
-      upstream app {
-      {{ range getvs "/services/app/*" }}
-        server {{ . }};
-      {{ end }}
+      events {
       }
-
-      server {
-        listen 80;
-        root /usr/src/app/public;
-        location / {
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header Host $http_host;
-          proxy_redirect off;
-          try_files $uri /page_cache/$uri /page_cache/$uri.html @app;
+      http {
+        upstream app {
+        {{ range getvs "/services/app/*" }}
+          server {{ . }};
+        {{ end }}
         }
-        location @app{
-          proxy_pass http://app:9292;
-          break;
+
+        server {
+          listen 80;
+          root /usr/src/app/public;
+          location / {
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Host $http_host;
+            proxy_redirect off;
+            try_files $uri /page_cache/$uri /page_cache/$uri.html @app;
+          }
+          location @app{
+            proxy_pass http://app;
+            break;
+          }
         }
       }
   - path: "/home/core/skydns.service"
@@ -113,7 +117,7 @@ write_files:
       ExecStartPre=-/usr/bin/docker kill app-job 
       ExecStartPre=-/usr/bin/docker rm app-job 
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
-      ExecStart=/bin/bash -c 'usr/bin/docker run --rm --name app-job \
+      ExecStart=/bin/bash -c 'usr/bin/docker run --rm --name app-job --entrypoint "/setup.sh" \
       -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
       -w "/usr/src/app" --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) --dns-search "sampleapp.local"  \
       carolina/sample_app_rails_4_image:latest'
@@ -125,8 +129,8 @@ write_files:
     content: |
       [Unit] 
       Description=app-task container that runs the server puma
-      After=docker.service skydns.service app-job.service
-      Requires=docker.service skydns.service app-job.service
+      After=docker.service etcd2.service skydns.service app-job.service
+      Requires=docker.service etcd2.service skydns.service app-job.service
 
       [Service] 
       TimeoutStartSec=0 
@@ -140,7 +144,7 @@ write_files:
       -w "/usr/src/app" --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) --dns-search "sampleapp.local" \
       carolina/sample_app_rails_4_image:latest \
       /bin/bash -c "cp config/database.yml.postgresql config/database.yml && puma -p 9292"'
-      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" app-task) == "=true" ]; do sleep 1; done; etcdctl set /services/app/${COREOS_PRIVATE_IPV4} $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" app-task)'
+      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" app-task) == "=true" ]; do sleep 1; done; etcdctl set /services/app/${COREOS_PRIVATE_IPV4} $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" app-task):9292'
       ExecStop=/usr/bin/etcdctl rm /services/app/${COREOS_PRIVATE_IPV4}
       ExecStop=/usr/bin/docker stop app-task
 
@@ -151,8 +155,8 @@ write_files:
     content: |
       [Unit] 
       Description=conf data container to share files between confd and nginx containers
-      After=docker.service skydns.service 
-      Requires=docker.service skydns.service 
+      After=docker.service
+      Requires=docker.service
 
       [Service] 
       Type=oneshot
@@ -165,13 +169,34 @@ write_files:
       [X-Fleet]
       Global=true
       MachineMetadata=compute=web-proxy
+  - path: "/home/core/nginx.service"
+    permissions: "0644"
+    content: |
+      [Unit] 
+      Description=some-nginx container that runs a reverse proxy server and a web server
+      After=docker.service conf-data.service 
+      Requires=docker.service conf-data.service 
+
+      [Service] 
+      Restart=always
+      TimeoutStartSec=0 
+      ExecStartPre=-/usr/bin/docker kill some-nginx 
+      ExecStartPre=-/usr/bin/docker rm some-nginx
+      ExecStartPre=/usr/bin/docker pull nginx 
+      ExecStart=/usr/bin/docker run --rm --name some-nginx \
+      --volumes-from=conf-data -p "80:80" nginx 
+      ExecStop=/usr/bin/docker stop some-nginx
+
+      [X-Fleet]
+      Global=true
+      MachineMetadata=compute=web-proxy
   - path: "/home/core/confd.service"
     permissions: "0644"
     content: |
       [Unit] 
       Description=confd container that regenerates nginx.conf file and restart some-nginx container when detects a new rails server has been registered
-      After=docker.service skydns.service conf-data.service 
-      Requires=docker.service skydns.service conf-data.service 
+      After=docker.service etcd2.service conf-data.service nginx.service
+      Requires=docker.service etcd2.service conf-data.service nginx.service
 
       [Service] 
       TimeoutStartSec=0 
@@ -184,33 +209,9 @@ write_files:
       -v "/var/run/docker.sock:/var/run/docker.sock" \
       -v "/etc/nginx.toml:/etc/confd/conf.d/nginx.toml" \
       -v "/etc/nginx.conf.tmpl:/etc/confd/templates/nginx.conf.tmpl" \
-      --volumes-from=conf-data \
-      --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) \
-      --dns-search "sampleapp.local" carolina/confd_image:latest'
+      --volumes-from=conf-data carolina/confd_image '
       ExecStop=/usr/bin/docker stop confd
      
-      [X-Fleet]
-      Global=true
-      MachineMetadata=compute=web-proxy
-
-  - path: "/home/core/nginx.service"
-    permissions: "0644"
-    content: |
-      [Unit] 
-      Description=some-nginx container that runs a reverse proxy server and a web server
-      After=docker.service skydns.service conf-data.service confd.service
-      Requires=docker.service skydns.service conf-data.service confd.service
-
-      [Service] 
-      TimeoutStartSec=0 
-      ExecStartPre=-/usr/bin/docker kill some-nginx 
-      ExecStartPre=-/usr/bin/docker rm some-nginx
-      ExecStartPre=/usr/bin/docker pull nginx 
-      ExecStart=/usr/bin/docker run --rm --name some-nginx \
-      --volumes-from=conf-data -p "80:80" nginx 
-      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" some-nginx) == "=true" ]; do sleep 1; done; /usr/bin/etcdctl set /skydns/local/sampleapp/some-nginx "{ \\"host\\": \\"$(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" some-nginx)\\"}"'
-      ExecStop=/usr/bin/docker stop some-nginx
-
       [X-Fleet]
       Global=true
       MachineMetadata=compute=web-proxy
@@ -293,14 +294,6 @@ coreos:
 
       [Service]
       ExecStart=/usr/bin/fleetctl start /home/core/conf-data.service
-  - name: fleet-confd.service
-    command: start
-    content: |
-      [Unit]
-      Description=Start confd.service using fleet
-
-      [Service]
-      ExecStart=/usr/bin/fleetctl start /home/core/confd.service
   - name: fleet-nginx.service
     command: start
     content: |
@@ -309,3 +302,12 @@ coreos:
 
       [Service]
       ExecStart=/usr/bin/fleetctl start /home/core/nginx.service
+  - name: fleet-confd.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start confd.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/confd.service
+ 
