@@ -24,14 +24,20 @@ write_files:
           break;
         }
       }
+  - path: "/home/core/reload.sh"
+    permissions: "0644"
+    content: |
+      #!/bin/sh
+
+      curl --unix-socket /var/run/docker.sock -XPOST "http://v1.26/containers/$(curl --unix-socket /var/run/docker.sock 'http://v1.26/containers/json' | jq -r '.[] | select(.Names[0] == "/some-nginx") .Id')/kill"
   - path: "/etc/nginx.toml"
     permissions: "0644"
     content: |
       [template]
       src = "nginx.conf.tmpl"
       dest = "/etc/nginx/nginx.conf"
-      keys = [ "/services/app" ]
-      reload_cmd = ""
+      keys = [ "/services/app" ] 
+      reload_cmd = "sh /reload.sh"
   - path: "/etc/nginx.conf.tmpl"
     permissions: "0644"
     content: |
@@ -209,6 +215,7 @@ write_files:
       -v "/var/run/docker.sock:/var/run/docker.sock" \
       -v "/etc/nginx.toml:/etc/confd/conf.d/nginx.toml" \
       -v "/etc/nginx.conf.tmpl:/etc/confd/templates/nginx.conf.tmpl" \
+      -v "/home/core/reload.sh:/reload.sh" \
       --volumes-from=conf-data carolina/confd_image '
       ExecStop=/usr/bin/docker stop confd
      
