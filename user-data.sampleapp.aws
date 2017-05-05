@@ -175,34 +175,13 @@ write_files:
       [X-Fleet]
       Global=true
       MachineMetadata=compute=web-proxy
-  - path: "/home/core/nginx.service"
-    permissions: "0644"
-    content: |
-      [Unit] 
-      Description=some-nginx container that runs a reverse proxy server and a web server
-      After=docker.service conf-data.service 
-      Requires=docker.service conf-data.service 
-
-      [Service] 
-      Restart=always
-      TimeoutStartSec=0 
-      ExecStartPre=-/usr/bin/docker kill some-nginx 
-      ExecStartPre=-/usr/bin/docker rm some-nginx
-      ExecStartPre=/usr/bin/docker pull nginx 
-      ExecStart=/usr/bin/docker run --rm --name some-nginx \
-      --volumes-from=conf-data -p "80:80" nginx 
-      ExecStop=/usr/bin/docker stop some-nginx
-
-      [X-Fleet]
-      Global=true
-      MachineMetadata=compute=web-proxy
   - path: "/home/core/confd.service"
     permissions: "0644"
     content: |
       [Unit] 
       Description=confd container that regenerates nginx.conf file and restart some-nginx container when detects a new rails server has been registered
-      After=docker.service etcd2.service conf-data.service nginx.service
-      Requires=docker.service etcd2.service conf-data.service nginx.service
+      After=docker.service etcd2.service conf-data.service
+      Requires=docker.service etcd2.service conf-data.service
 
       [Service] 
       TimeoutStartSec=0 
@@ -219,6 +198,27 @@ write_files:
       --volumes-from=conf-data carolina/confd_image '
       ExecStop=/usr/bin/docker stop confd
      
+      [X-Fleet]
+      Global=true
+      MachineMetadata=compute=web-proxy
+  - path: "/home/core/nginx.service"
+    permissions: "0644"
+    content: |
+      [Unit] 
+      Description=some-nginx container that runs a reverse proxy server and a web server
+      After=docker.service conf-data.service confd.service
+      Requires=docker.service conf-data.service confd.service
+
+      [Service] 
+      Restart=always
+      TimeoutStartSec=0 
+      ExecStartPre=-/usr/bin/docker kill some-nginx 
+      ExecStartPre=-/usr/bin/docker rm some-nginx
+      ExecStartPre=/usr/bin/docker pull nginx 
+      ExecStart=/usr/bin/docker run --rm --name some-nginx \
+      --volumes-from=conf-data -p "80:80" nginx 
+      ExecStop=/usr/bin/docker stop some-nginx
+
       [X-Fleet]
       Global=true
       MachineMetadata=compute=web-proxy
@@ -301,14 +301,6 @@ coreos:
 
       [Service]
       ExecStart=/usr/bin/fleetctl start /home/core/conf-data.service
-  - name: fleet-nginx.service
-    command: start
-    content: |
-      [Unit]
-      Description=Start nginx.service using fleet
-
-      [Service]
-      ExecStart=/usr/bin/fleetctl start /home/core/nginx.service
   - name: fleet-confd.service
     command: start
     content: |
@@ -317,4 +309,11 @@ coreos:
 
       [Service]
       ExecStart=/usr/bin/fleetctl start /home/core/confd.service
- 
+  - name: fleet-nginx.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start nginx.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/nginx.service
