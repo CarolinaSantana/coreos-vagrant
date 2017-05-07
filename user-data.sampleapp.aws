@@ -7,37 +7,6 @@ write_files:
     content: |
       POSTGRES_USER=postgres
       POSTGRES_PASSWORD=postgres
-  - path: "/etc/nginx.conf"
-    permissions: "0644"
-    content: |
-      server {
-        listen 80;
-        root /usr/src/app/public;
-        location / {
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header Host $http_host;
-          proxy_redirect off;
-          try_files $uri /page_cache/$uri /page_cache/$uri.html @app;
-        }
-        location @app{
-          proxy_pass http://app;
-          break;
-        }
-      }
-  - path: "/home/core/reload.sh"
-    permissions: "0644"
-    content: |
-      #!/bin/sh
-
-      curl --unix-socket /var/run/docker.sock -XPOST "http://v1.26/containers/$(curl --unix-socket /var/run/docker.sock 'http://v1.26/containers/json' | jq -r '.[] | select(.Names[0] == "/some-nginx") .Id')/kill"
-  - path: "/etc/nginx.toml"
-    permissions: "0644"
-    content: |
-      [template]
-      src = "nginx.conf.tmpl"
-      dest = "/etc/nginx/nginx.conf"
-      keys = [ "/services/app" ] 
-      reload_cmd = "sh /reload.sh"
   - path: "/etc/nginx.conf.tmpl"
     permissions: "0644"
     content: |
@@ -65,6 +34,20 @@ write_files:
           }
         }
       }
+  - path: "/home/core/reload.sh"
+    permissions: "0644"
+    content: |
+      #!/bin/sh
+
+      curl --unix-socket /var/run/docker.sock -XPOST "http://v1.26/containers/$(curl --unix-socket /var/run/docker.sock 'http://v1.26/containers/json' | jq -r '.[] | select(.Names[0] == "/some-nginx") .Id')/kill"
+  - path: "/etc/nginx.toml"
+    permissions: "0644"
+    content: |
+      [template]
+      src = "nginx.conf.tmpl"
+      dest = "/etc/nginx/nginx.conf"
+      keys = [ "/services/app" ] 
+      reload_cmd = "sh /reload.sh"
   - path: "/home/core/skydns.service"
     permissions: "0644"
     content: |
@@ -174,7 +157,7 @@ write_files:
       
       [X-Fleet]
       Global=true
-      MachineMetadata=compute=web-proxy
+      MachineMetadata=compute=proxy
   - path: "/home/core/confd.service"
     permissions: "0644"
     content: |
@@ -192,15 +175,15 @@ write_files:
       ExecStart=/bin/bash -c '/usr/bin/docker run --rm --name confd \
       -e COREOS_PRIVATE_IPV4=${COREOS_PRIVATE_IPV4} \
       -v "/var/run/docker.sock:/var/run/docker.sock" \
-      -v "/etc/nginx.toml:/etc/confd/conf.d/nginx.toml" \
       -v "/etc/nginx.conf.tmpl:/etc/confd/templates/nginx.conf.tmpl" \
       -v "/home/core/reload.sh:/reload.sh" \
+      -v "/etc/nginx.toml:/etc/confd/conf.d/nginx.toml" \
       --volumes-from=conf-data carolina/confd_image '
       ExecStop=/usr/bin/docker stop confd
      
       [X-Fleet]
       Global=true
-      MachineMetadata=compute=web-proxy
+      MachineMetadata=compute=proxy
   - path: "/home/core/nginx.service"
     permissions: "0644"
     content: |
@@ -221,7 +204,7 @@ write_files:
 
       [X-Fleet]
       Global=true
-      MachineMetadata=compute=web-proxy
+      MachineMetadata=compute=proxy
 coreos:
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379

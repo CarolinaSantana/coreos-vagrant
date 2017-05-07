@@ -11,7 +11,7 @@
   ExecStartPre=/usr/bin/docker pull postgres 
   ExecStart=/usr/bin/docker run --rm --name some-postgres \
   -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
-  -v "volume-public:/var/lib/posgresql" -p "5432:5432" postgres 
+  -v "volume-public:/var/lib/postgresql" -p "5432:5432" postgres 
   ExecStop=/usr/bin/docker stop some-postgres 
 
 [Install] 

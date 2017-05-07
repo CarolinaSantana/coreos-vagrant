@@ -172,7 +172,7 @@ Vagrant.configure("2") do |config|
           require 'yaml'
           data = YAML.load(IO.readlines(CLOUD_CONFIG_PATH)[1..-1].join)
           if data['coreos'].key? 'fleet' and i==1
-            data['coreos']['fleet']['metadata'] = 'compute=web-proxy'
+            data['coreos']['fleet']['metadata'] = 'compute=proxy'
           end
           if data['coreos'].key? 'fleet' and i==2
             data['coreos']['fleet']['metadata'] = 'compute=db'
