@@ -170,6 +170,14 @@ Access to the service:
 
 # CoreOS Vagrant deploying sample app Ruby Application in Amazon Web Services (AWS)
 
+The following insfrastructure will be deploy in AWS public cloud:
+
+![alt tag](https://github.com/carmelocuenca/csantana_project/tfm_doc/images/figures/aws-1-iteration.png?raw=true)
+
+When this infrastructure is deployed, the *some-postgres* container, where the database is hosted, is registered to the DNS server, *skydns*. It uses to store the keys and values. In this way, *some-postgres* can be discovered by the *app-job* containers, one of which, the first one, will create, migrate and feed the database. When the *app-task* containers are started, the application's web servers are registered in etc2. The *confd* container monitors these changes every 5 seconds to update the configuration of *some-nginx* and can resolve them. Because a file is shared between containers, the volume *conf-data* is used. Thus, when a client makes a request via the Internet to *some-nginx*, it can redirect it to one of the *app-task* servers, which will query *skydns* to gets and writes information in the database. The policy to redirect to web servers will be Round Robin, from the first to the last.
+
+The location of the units is achieved by metadatas on the machines and fleet service units.
+
 First of all, you have to install the plugin that allows you to use the AWS provider:
 
     vagrant plugin install vagrant-aws
@@ -203,7 +211,6 @@ Change in *Vagrantfile* to your particular values referred to your AWS account. 
 - *aws_instance_type*
 
 *Vagrantfile* has been configured to uses the *user-data* AWS version when this provider is choosen. This *cloud-config* is called *user-data.sampleapp.aws*.
-
 
 ## 1 instance cluster
 
@@ -240,18 +247,36 @@ To check the virtual network:
     
 To check virtual machines have connection with other virtual machines containers:
 
-- Access to, for example, the virtual machine *core-03*:
+- Access to, for example, the virtual machine *core-02*:
 
-    vagrant ssh core-03
+    vagrant ssh core-02
 
 - Inspect, for example, *some-postgres* container to know its IP address:
 
-    docker inspect some-postgress
+    docker inspect some-postgres
 
-- Test connection between *core-01* and *some-postgres* *core-03* container:
+- Test connection between *core-01* and *some-postgres* container:
+    
+    vagrant ssh core-01
+    ping *some-postgres-IP-address*
 
-    ping *some-postgres--core-03--IP-address*
+To check machines metadata use:
 
-Access to the service:
+    for i in 1 2 3; do vagrant ssh core-0$i -c 'fleetctl list-machines'; done
 
-    for i in 1 2 3; do vagrant ssh core-0$i -c 'curl http://localhost:80 | tail -n 15'; done
+To check fleet units status use:
+
+    for i in 1 2 3; do vagrant ssh core-0$i -c 'fleetctl list-units'; done
+
+To check existing records under the key */services/app* and its values:
+
+    etcdctl ls --recursive /services/app
+    etcdctl get /services/app/*<app-task IP address>*
+
+Access to the service from 3 servers:
+
+    for i in 1 2 3; do vagrant ssh core-01 -c 'curl http://localhost:80 | tail -n 15'; done
+
+Check the answer from web servers:
+ 
+    docker logs app-task
