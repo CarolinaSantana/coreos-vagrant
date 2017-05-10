@@ -28,7 +28,7 @@ coreos:
   update:
     reboot-strategy: "reboot"
   locksmith:
-    window-start: Thu 04:00
+    window-start: Sun 04:00
     window-length: 1h
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379
@@ -50,7 +50,7 @@ coreos:
     - name: 50-network-config.conf
       content: |
         [Service]
-        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16" }'
+        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16", "Backend": { "Type": "udp" } }'
     command: start
   - name: docker-tcp.socket
     command: start
@@ -92,6 +92,7 @@ coreos:
 
       [Service] 
       TimeoutStartSec=0
+      Restart=always
       EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill some-postgres 
       ExecStartPre=-/usr/bin/docker rm some-postgres 
@@ -144,7 +145,8 @@ coreos:
       -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
       -w "/usr/src/app" -v "volume-public:/usr/src/app/public" --link "some-postgres:db" \
       carolina/sample_app_rails_4_image:latest \
-      /bin/bash -c "cp config/database.yml.postgresql config/database.yml && puma -p 9292"
+      /bin/bash -c "cp config/database.yml.postgresql config/database.yml && \
+      cp ./.secret.example ./.secret && puma -p 9292"
       ExecStop=/usr/bin/docker stop app-task
 
       [Install] 

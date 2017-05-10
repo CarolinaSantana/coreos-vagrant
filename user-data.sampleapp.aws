@@ -78,6 +78,7 @@ write_files:
 
       [Service] 
       TimeoutStartSec=0
+      Restart=always
       EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill some-postgres 
       ExecStartPre=-/usr/bin/docker rm some-postgres 
@@ -100,7 +101,7 @@ write_files:
       Requires=docker.service skydns.service
 
       [Service] 
-      TimeoutStartSec=0 
+      TimeoutStartSec=0
       EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill app-job 
       ExecStartPre=-/usr/bin/docker rm app-job 
@@ -121,7 +122,8 @@ write_files:
       Requires=docker.service etcd2.service skydns.service app-job.service
 
       [Service] 
-      TimeoutStartSec=0 
+      TimeoutStartSec=0
+      Restart=always 
       EnvironmentFile=/etc/environment
       EnvironmentFile=/etc/postgres-credentials.env
       ExecStartPre=-/usr/bin/docker kill app-task 
@@ -131,7 +133,8 @@ write_files:
       -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
       -w "/usr/src/app" --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) --dns-search "sampleapp.local" \
       carolina/sample_app_rails_4_image:latest \
-      /bin/bash -c "cp config/database.yml.postgresql config/database.yml && puma -p 9292"'
+      /bin/bash -c "cp config/database.yml.postgresql config/database.yml && \
+      cp ./.secret.example ./.secret && puma -p 9292"'
       ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" app-task) == "=true" ]; do sleep 1; done; etcdctl set /services/app/${COREOS_PRIVATE_IPV4} $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" app-task):9292'
       ExecStop=/usr/bin/etcdctl rm /services/app/${COREOS_PRIVATE_IPV4}
       ExecStop=/usr/bin/docker stop app-task
@@ -167,6 +170,7 @@ write_files:
 
       [Service] 
       TimeoutStartSec=0 
+      Restart=always 
       EnvironmentFile=/etc/environment
       ExecStartPre=-/usr/bin/docker kill confd 
       ExecStartPre=-/usr/bin/docker rm confd
@@ -208,7 +212,7 @@ coreos:
   update:
     reboot-strategy: "reboot"
   locksmith:
-    window-start: Thu 04:00
+    window-start: Sun 04:00
     window-length: 1h
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379
