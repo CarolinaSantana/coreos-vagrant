@@ -25,6 +25,11 @@ write_files:
         }
       }
 coreos:
+  update:
+    reboot-strategy: "reboot"
+  locksmith:
+    window-start: Thu 04:00
+    window-length: 1h
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379
     initial-advertise-peer-urls: http://$private_ipv4:2380
@@ -34,7 +39,7 @@ coreos:
   fleet:
     public-ip: "$public_ipv4"
   flannel:
-    interface: "$public_ipv4"
+    interface: "$private_ipv4"
   units:
   - name: etcd2.service
     command: start
@@ -45,7 +50,7 @@ coreos:
     - name: 50-network-config.conf
       content: |
         [Service]
-        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "10.1.0.0/16" }'
+        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16" }'
     command: start
   - name: docker-tcp.socket
     command: start
@@ -113,7 +118,7 @@ coreos:
       ExecStartPre=-/usr/bin/docker kill app-job 
       ExecStartPre=-/usr/bin/docker rm app-job 
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
-      ExecStart=/usr/bin/docker run --rm --name app-job -v "volume-public:/usr/src/app/public" --entrypoint "/setup.sh" \
+      ExecStart=/usr/bin/docker run --rm --name app-job -v "volume-public:/usr/src/app/public" --entrypoint "./setup.sh" \
       -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
       -w "/usr/src/app" --link "some-postgres:db" \
       carolina/sample_app_rails_4_image:latest

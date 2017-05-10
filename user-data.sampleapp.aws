@@ -18,7 +18,6 @@ write_files:
           server {{ . }};
         {{ end }}
         }
-
         server {
           listen 80;
           root /usr/src/app/public;
@@ -106,7 +105,7 @@ write_files:
       ExecStartPre=-/usr/bin/docker kill app-job 
       ExecStartPre=-/usr/bin/docker rm app-job 
       ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
-      ExecStart=/bin/bash -c 'usr/bin/docker run --rm --name app-job --entrypoint "/setup.sh" \
+      ExecStart=/bin/bash -c 'usr/bin/docker run --rm --name app-job --entrypoint "./setup.sh" \
       -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
       -w "/usr/src/app" --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) --dns-search "sampleapp.local"  \
       carolina/sample_app_rails_4_image:latest'
@@ -206,6 +205,11 @@ write_files:
       Global=true
       MachineMetadata=compute=proxy
 coreos:
+  update:
+    reboot-strategy: "reboot"
+  locksmith:
+    window-start: Thu 04:00
+    window-length: 1h
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379
     initial-advertise-peer-urls: http://$private_ipv4:2380

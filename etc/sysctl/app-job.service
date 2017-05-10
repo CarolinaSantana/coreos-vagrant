@@ -9,7 +9,7 @@
   ExecStartPre=-/usr/bin/docker kill app-job 
   ExecStartPre=-/usr/bin/docker rm app-job 
   ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest 
-  ExecStart=/usr/bin/docker run --rm --name app-job -v "volume-public:/usr/src/app/public" --entrypoint "/setup.sh" \
+  ExecStart=/usr/bin/docker run --rm --name app-job -v "volume-public:/usr/src/app/public" --entrypoint "./setup.sh" \
   -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
   -w "/usr/src/app" --link "some-postgres:db" \
   carolina/sample_app_rails_4_image:latest
