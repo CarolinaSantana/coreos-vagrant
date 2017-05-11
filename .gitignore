@@ -4,4 +4,4 @@ user-data
 user-data-*
 config.rb
 *~
-
+Vagrantfile
