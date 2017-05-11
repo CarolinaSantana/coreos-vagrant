@@ -3,14 +3,16 @@
 # Start Up in VB
 ```
 $ cp Vagranfile.virtualbox Vagrantfile
-$ cp user-data.sampleapp user-data
+$ cp user-data.sampleapp.virtualbox user-data
+$ cp config.rb.sample config.rb
 $ vagrant up
 be patient!
 ```
 # Start Up in AWS
 ```
 $ cp Vagranfile.aws Vagrantfile
-$ cp user-data.sampleapp user-data
+$ cp user-data.sampleapp.aws user-data
+$ cp config.rb.sample config.rb
 $ vagrant up
 be patient!
 
@@ -49,8 +51,6 @@ $ vagrant ssh core-01 -c '/bin/curl localhost'
 .
 ```
 
-
-ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16" }'
 
 
 # CoreOS Vagrant

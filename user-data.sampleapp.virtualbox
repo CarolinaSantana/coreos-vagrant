@@ -1,0 +1,310 @@
+#cloud-config
+
+---
+write_files:
+  - path: "/etc/postgres-credentials.env"
+    permissions: "0644"
+    content: |
+      POSTGRES_USER=postgres
+      POSTGRES_PASSWORD=postgres
+  - path: "/etc/nginx.conf.tmpl"
+    permissions: "0644"
+    content: |
+      events {
+      }
+      http {
+        upstream app {
+        {{ range getvs "/services/app/*" }}
+          server {{ . }};
+        {{ end }}
+        }
+        server {
+          listen 80;
+          root /usr/src/app/public;
+          location / {
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header Host $http_host;
+            proxy_redirect off;
+            try_files $uri /page_cache/$uri /page_cache/$uri.html @app;
+          }
+          location @app{
+            proxy_pass http://app;
+            break;
+          }
+        }
+      }
+  - path: "/home/core/reload.sh"
+    permissions: "0644"
+    content: |
+      #!/bin/sh
+
+      curl --unix-socket /var/run/docker.sock -XPOST "http://v1.26/containers/$(curl --unix-socket /var/run/docker.sock 'http://v1.26/containers/json' | jq -r '.[] | select(.Names[0] == "/some-nginx") .Id')/kill"
+  - path: "/etc/nginx.toml"
+    permissions: "0644"
+    content: |
+      [template]
+      src = "nginx.conf.tmpl"
+      dest = "/etc/nginx/nginx.conf"
+      keys = [ "/services/app" ]
+      reload_cmd = "sh /reload.sh"
+  - path: "/home/core/skydns.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=SkyDNS
+      After=docker.service etcd2.service
+      Requires=docker.service etcd2.service
+
+      [Service]
+      Restart=always
+      TimeoutStartSec=0
+      ExecStartPre=-/usr/bin/docker rm -f skydns
+      ExecStartPre=/usr/bin/docker pull skynetservices/skydns
+      ExecStartPre=/usr/bin/etcdctl set /skydns/config \
+                   '{"dns_addr":"0.0.0.0:53", "domain": "sampleapp.local.", "ttl":30}'
+      ExecStart=/usr/bin/docker run --rm --name skydns \
+                -e ETCD_MACHINES="http://$private_ipv4:2379" skynetservices/skydns
+      ExecStop=-/usr/bin/docker stop skydns
+
+      [X-Fleet]
+      Global=true
+  - path: "/home/core/postgresql.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=PostgreSQL database
+      After=docker.service etcd2.service skydns.service
+      Requires=docker.service etcd2.service skydns.service
+
+      [Service]
+      TimeoutStartSec=0
+      Restart=always
+      EnvironmentFile=/etc/postgres-credentials.env
+      ExecStartPre=-/usr/bin/docker kill some-postgres
+      ExecStartPre=-/usr/bin/docker rm some-postgres
+      ExecStartPre=/usr/bin/docker pull postgres
+      ExecStart=/usr/bin/docker run --rm --name some-postgres \
+      -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+      -p "5432:5432" postgres
+      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" some-postgres) == "=true" ]; do sleep 1; done; /usr/bin/etcdctl set /skydns/local/sampleapp/some-postgres  "{ \\"host\\": \\"db.sampleapp.local.\\"}" ; /usr/bin/etcdctl set /skydns/local/sampleapp/db  "{ \\"host\\": \\"$(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" some-postgres)\\" , \\"port\\":5432}"'
+      ExecStop=/usr/bin/docker stop some-postgres
+
+      [X-Fleet]
+      Global=true
+      MachineMetadata=compute=db
+  - path: "/home/core/app-job.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=executable app-job container that creates, migrates, seeds and populates the database
+      After=docker.service skydns.service
+      Requires=docker.service skydns.service
+
+      [Service]
+      TimeoutStartSec=0
+      EnvironmentFile=/etc/postgres-credentials.env
+      ExecStartPre=-/usr/bin/docker kill app-job
+      ExecStartPre=-/usr/bin/docker rm app-job
+      ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest
+      ExecStart=/bin/bash -c 'usr/bin/docker run --rm --name app-job --entrypoint "./setup.sh" \
+      -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+      -w "/usr/src/app" --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) --dns-search "sampleapp.local"  \
+      carolina/sample_app_rails_4_image:latest'
+
+      [X-Fleet]
+      Global=true
+  - path: "/home/core/app-task.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=app-task container that runs the server puma
+      After=docker.service etcd2.service skydns.service app-job.service
+      Requires=docker.service etcd2.service skydns.service app-job.service
+
+      [Service]
+      TimeoutStartSec=0
+      Restart=always
+      EnvironmentFile=/etc/environment
+      EnvironmentFile=/etc/postgres-credentials.env
+      ExecStartPre=-/usr/bin/docker kill app-task
+      ExecStartPre=-/usr/bin/docker rm app-task
+      ExecStartPre=/usr/bin/docker pull carolina/sample_app_rails_4_image:latest
+      ExecStart=/bin/bash -c 'usr/bin/docker run --rm --name app-task \
+      -e "POSTGRES_USER=${POSTGRES_USER}" -e "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+      -w "/usr/src/app" --dns $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" skydns) --dns-search "sampleapp.local" \
+      carolina/sample_app_rails_4_image:latest \
+      /bin/bash -c "cp config/database.yml.postgresql config/database.yml && \
+      cp ./.secret.example ./.secret && puma -p 9292"'
+      ExecStartPost=/bin/bash -c 'while ! [ $(/usr/bin/docker inspect -f ="{{.State.Running}}" app-task) == "=true" ]; do sleep 1; done; etcdctl set /services/app/${COREOS_PRIVATE_IPV4} $(/usr/bin/docker inspect -f "{{ .NetworkSettings.IPAddress }}" app-task):9292'
+      ExecStop=/usr/bin/etcdctl rm /services/app/${COREOS_PRIVATE_IPV4}
+      ExecStop=/usr/bin/docker stop app-task
+
+      [X-Fleet]
+      Global=true
+  - path: "/home/core/conf-data.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=conf data container to share files between confd and nginx containers
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStartPre=-/usr/bin/docker kill conf-data
+      ExecStartPre=-/usr/bin/docker rm conf-data
+      ExecStartPre=/usr/bin/docker pull nginx
+      ExecStart=/usr/bin/docker run -v /etc/nginx --name conf-data nginx echo "conf-data container created"
+
+      [X-Fleet]
+      Global=true
+      MachineMetadata=compute=proxy
+  - path: "/home/core/confd.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=confd container that regenerates nginx.conf file and restart some-nginx container when detects a new rails server has been registered
+      After=docker.service etcd2.service conf-data.service
+      Requires=docker.service etcd2.service conf-data.service
+
+      [Service]
+      TimeoutStartSec=0
+      Restart=always
+      EnvironmentFile=/etc/environment
+      ExecStartPre=-/usr/bin/docker kill confd
+      ExecStartPre=-/usr/bin/docker rm confd
+      ExecStartPre=/usr/bin/docker pull carolina/confd_image:latest
+      ExecStart=/bin/bash -c '/usr/bin/docker run --rm --name confd \
+      -e COREOS_PRIVATE_IPV4=${COREOS_PRIVATE_IPV4} \
+      -v "/var/run/docker.sock:/var/run/docker.sock" \
+      -v "/etc/nginx.conf.tmpl:/etc/confd/templates/nginx.conf.tmpl" \
+      -v "/home/core/reload.sh:/reload.sh" \
+      -v "/etc/nginx.toml:/etc/confd/conf.d/nginx.toml" \
+      --volumes-from=conf-data carolina/confd_image '
+      ExecStop=/usr/bin/docker stop confd
+
+      [X-Fleet]
+      Global=true
+      MachineMetadata=compute=proxy
+  - path: "/home/core/nginx.service"
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=some-nginx container that runs a reverse proxy server and a web server
+      After=docker.service conf-data.service confd.service
+      Requires=docker.service conf-data.service confd.service
+
+      [Service]
+      Restart=always
+      TimeoutStartSec=0
+      ExecStartPre=-/usr/bin/docker kill some-nginx
+      ExecStartPre=-/usr/bin/docker rm some-nginx
+      ExecStartPre=/usr/bin/docker pull nginx
+      ExecStart=/usr/bin/docker run --rm --name some-nginx \
+      --volumes-from=conf-data -p "80:80" nginx
+      ExecStop=/usr/bin/docker stop some-nginx
+
+      [X-Fleet]
+      Global=true
+      MachineMetadata=compute=proxy
+coreos:
+  update:
+    reboot-strategy: "reboot"
+  locksmith:
+    window-start: Sun 04:00
+    window-length: 1h
+  etcd2:
+    advertise-client-urls: http://$public_ipv4:2379
+    initial-advertise-peer-urls: http://$private_ipv4:2380
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://$private_ipv4:2380,http://$private_ipv4:7001
+    discovery: https://discovery.etcd.io/558211c45a44606538213eddb032abc3
+  fleet:
+    public-ip: "$public_ipv4"
+  flannel:
+    interface: "$private_ipv4"
+  units:
+  - name: etcd2.service
+    command: start
+  - name: fleet.service
+    command: start
+    enable: true
+  - name: flanneld.service
+    drop-ins:
+    - name: 50-network-config.conf
+      content: |
+        [Service]
+        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16"}'
+    command: start
+    enable: true
+  - name: docker-tcp.socket
+    command: start
+    enable: true
+    content: |
+      [Unit]
+      Description=Docker Socket for the API
+
+      [Socket]
+      ListenStream=2375
+      Service=docker.service
+      BindIPv6Only=both
+
+      [Install]
+      WantedBy=multi-user.target
+  - name: fleet-skydns.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start skydns.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/skydns.service
+  - name: fleet-postgresql.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start postgresql.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/postgresql.service
+  - name: fleet-app-job.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start app-job.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/app-job.service
+  - name: fleet-app-task.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start app-task.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/app-task.service
+  - name: fleet-conf-data.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start conf-data.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/conf-data.service
+  - name: fleet-confd.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start confd.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/confd.service
+  - name: fleet-nginx.service
+    command: start
+    content: |
+      [Unit]
+      Description=Start nginx.service using fleet
+
+      [Service]
+      ExecStart=/usr/bin/fleetctl start /home/core/nginx.service
