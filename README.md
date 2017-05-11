@@ -2,7 +2,7 @@
 
 # Start Up in VB
 ```
-$ cp Vagranfile.virtualbox Vagrantfile
+$ cp Vagrantfile.virtualbox Vagrantfile
 $ cp user-data.sampleapp.virtualbox user-data
 $ cp config.rb.sample config.rb
 $ vagrant up
