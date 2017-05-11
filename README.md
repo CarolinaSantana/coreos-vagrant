@@ -1,3 +1,58 @@
+# Infraestructure as Code with VirtualBox (VB) and Amazon Web Service (AWS)
+
+# Start Up in VB
+```
+$ cp Vagranfile.virtualbox Vagrantfile
+$ cp user-data.sampleapp user-data
+$ vagrant up
+be patient!
+```
+# Start Up in AWS
+```
+$ cp Vagranfile.aws Vagrantfile
+$ cp user-data.sampleapp user-data
+$ vagrant up
+be patient!
+
+## Testing etcd2 service
+```
+$ vagrant ssh core-01 -c '/bin/etcdctl cluster-health'
+member 25484d741dcd7bc is healthy: got healthy result from http://172.17.8.102:2379
+member a4f94f4af1d48d5f is healthy: got healthy result from http://172.17.8.103:2379
+member bf20f7fe9bd179d1 is healthy: got healthy result from http://172.17.8.101:2379
+```
+
+## Testing fleetctl service
+```
+$ vagrant ssh core-01 -c '/bin/fleetctl list-units'
+app-job.service		430d800e.../172.17.8.103	inactive	dead
+app-job.service		55d8b2fe.../172.17.8.101	inactive	dead
+app-job.service		5ad9b3b8.../172.17.8.102	inactive	dead
+app-task.service	430d800e.../172.17.8.103	active		running
+app-task.service	55d8b2fe.../172.17.8.101	active		running
+app-task.service	5ad9b3b8.../172.17.8.102	active		running
+conf-data.service	55d8b2fe.../172.17.8.101	active		exited
+confd.service		55d8b2fe.../172.17.8.101	active		running
+nginx.service		55d8b2fe.../172.17.8.101	active		running
+postgresql.service	5ad9b3b8.../172.17.8.102	active		running
+skydns.service		430d800e.../172.17.8.103	active		running
+skydns.service		55d8b2fe.../172.17.8.101	active		running
+skydns.service		5ad9b3b8.../172.17.8.102	active		running
+```
+
+## Testing all site
+```
+$ vagrant ssh core-01 -c '/bin/curl localhost'
+<!DOCTYPE html>
+.
+.
+.
+```
+
+
+ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16" }'
+
+
 # CoreOS Vagrant
 
 This repo provides a template Vagrantfile to create a CoreOS virtual machine using the VirtualBox software hypervisor.
@@ -220,13 +275,13 @@ Execute this to up the infraestructure and then access to the machine:
     vagrant ssh core-01
 
 To check the cluster-health:
-    
+
     etcdctl cluster-health
 
 To check the virtual network:
 
     sudo systemctl status flanneld
-    
+
 Access to the service:
 
     curl http://localhost:80
@@ -238,13 +293,13 @@ Execute this to up the infraestructure:
     vagrant up --provider=aws
 
 To check the cluster-health:
-    
+
     for i in 1 2 3; do vagrant ssh core-0$i -c 'etcdctl cluster-health'; done
 
 To check the virtual network:
 
     for i in 1 2 3; do vagrant ssh core-0$i -c 'sudo systemctl flanneld | head -n16'; done
-    
+
 To check virtual machines have connection with other virtual machines containers:
 
 - Access to, for example, the virtual machine *core-02*:
@@ -256,7 +311,7 @@ To check virtual machines have connection with other virtual machines containers
     docker inspect some-postgres
 
 - Test connection between *core-01* and *some-postgres* container:
-    
+
     vagrant ssh core-01
     ping *some-postgres-IP-address*
 
@@ -278,5 +333,5 @@ Access to the service from 3 servers:
     for i in 1 2 3; do vagrant ssh core-01 -c 'curl http://localhost:80 | tail -n 15'; done
 
 Check the answer from web servers:
- 
+
     docker logs app-task
