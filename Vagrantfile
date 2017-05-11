@@ -5,20 +5,16 @@ require 'fileutils'
 
 Vagrant.require_version ">= 1.6.0"
 
-if (!ARGV.nil? && ARGV.join('').include?('provider=virtualbox')) || (!ARGV.nil? && !ARGV.join('').include?('provider'))
-  FileUtils.cp_r(File.join(File.dirname(__FILE__), "user-data.sampleapp.virtualbox"), File.join(File.dirname(__FILE__), "user-data"), :remove_destination => true)
-end
+#if (!ARGV.nil? && ARGV.join('').include?('provider=aws'))
+#  unless Vagrant.has_plugin?("vagrant-aws") 
+#    abort("Did not detect vagrant-aws plugin... vagrant plugin install vagrant-aws")
+#  end
 
-if (!ARGV.nil? && ARGV.join('').include?('provider=aws'))
-  unless Vagrant.has_plugin?("vagrant-aws") 
-    abort("Did not detect vagrant-aws plugin... vagrant plugin install vagrant-aws")
-  end
-
-  unless ENV['AWS_KEY'] && ENV['AWS_SECRET'] && ENV['AWS_KEYNAME']
-    abort("$AWS_KEY && $AWS_SECRET && $AWS_KEYNAME should set before...")
-  end
-  FileUtils.cp_r(File.join(File.dirname(__FILE__), "user-data.sampleapp.aws"), File.join(File.dirname(__FILE__), "user-data"), :remove_destination => true)
-end
+#  unless ENV['AWS_KEY'] && ENV['AWS_SECRET'] && ENV['AWS_KEYNAME']
+#    abort("$AWS_KEY && $AWS_SECRET && $AWS_KEYNAME should set before...")
+ # end
+ # FileUtils.cp_r(File.join(File.dirname(__FILE__), "user-data.sampleapp.aws"), File.join(File.dirname(__FILE__), "user-data"), :remove_destination => true)
+#end
 
 CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "user-data")
 CONFIG = File.join(File.dirname(__FILE__), "config.rb")
@@ -161,26 +157,26 @@ Vagrant.configure("2") do |config|
 
       # Copy of the cloud-config to the machine
       if File.exist?(CLOUD_CONFIG_PATH) && ARGV[0].eql?('up')
+        user_data_specific = "#{CLOUD_CONFIG_PATH}-#{i}"
+        require 'yaml'
+        data = YAML.load(IO.readlines(CLOUD_CONFIG_PATH)[1..-1].join)
+        #if data['coreos'].key? 'fleet' and i==1
+        #  data['coreos']['fleet']['metadata'] = 'compute=proxy'
+        #end
+        #if data['coreos'].key? 'fleet' and i==2
+        #  data['coreos']['fleet']['metadata'] = 'compute=db'
+        #end
+        yaml = YAML.dump(data)
+        File.open(user_data_specific, 'w') do |file|
+          file.write("#cloud-config\n\n#{yaml}")
+        end
 
         config.vm.provider :virtualbox do |vb, override|
-          override.vm.provision :file, :source => "#{CLOUD_CONFIG_PATH}", :destination => "/tmp/vagrantfile-user-data"
+          override.vm.provision :file, :source => user_data_specific, :destination => "/tmp/vagrantfile-user-data"
           override.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
         end
 
         config.vm.provider :aws do |aws, override|   
-          user_data_specific	=	"#{CLOUD_CONFIG_PATH}-#{i}"
-          require 'yaml'
-          data = YAML.load(IO.readlines(CLOUD_CONFIG_PATH)[1..-1].join)
-          if data['coreos'].key? 'fleet' and i==1
-            data['coreos']['fleet']['metadata'] = 'compute=proxy'
-          end
-          if data['coreos'].key? 'fleet' and i==2
-            data['coreos']['fleet']['metadata'] = 'compute=db'
-          end
-          yaml = YAML.dump(data)
-          File.open(user_data_specific, 'w') do |file|
-            file.write("#cloud-config\n\n#{yaml}")
-          end
           aws.private_ip_address = "10.0.0.#{100+i}"
           aws.user_data = File.read(user_data_specific)
         end

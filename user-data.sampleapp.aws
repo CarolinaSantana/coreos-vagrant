@@ -210,10 +210,7 @@ write_files:
       MachineMetadata=compute=proxy
 coreos:
   update:
-    reboot-strategy: "reboot"
-  locksmith:
-    window-start: Sun 04:00
-    window-length: 1h
+    reboot-strategy: "off"
   etcd2:
     advertise-client-urls: http://$public_ipv4:2379
     initial-advertise-peer-urls: http://$private_ipv4:2380
