@@ -5,16 +5,20 @@ require 'fileutils'
 
 Vagrant.require_version ">= 1.6.0"
 
-#if (!ARGV.nil? && ARGV.join('').include?('provider=aws'))
-#  unless Vagrant.has_plugin?("vagrant-aws") 
-#    abort("Did not detect vagrant-aws plugin... vagrant plugin install vagrant-aws")
-#  end
+if (!ARGV.nil? && ARGV.join('').include?('provider=virtualbox')) || (!ARGV.nil? && !ARGV.join('').include?('provider'))
+  FileUtils.cp_r(File.join(File.dirname(__FILE__), "user-data.sampleapp.vbox"), File.join(File.dirname(__FILE__), "user-data"), :remove_destination => true)
+end
 
-#  unless ENV['AWS_KEY'] && ENV['AWS_SECRET'] && ENV['AWS_KEYNAME']
-#    abort("$AWS_KEY && $AWS_SECRET && $AWS_KEYNAME should set before...")
- # end
- # FileUtils.cp_r(File.join(File.dirname(__FILE__), "user-data.sampleapp.aws"), File.join(File.dirname(__FILE__), "user-data"), :remove_destination => true)
-#end
+if (!ARGV.nil? && ARGV.join('').include?('provider=aws'))
+  unless Vagrant.has_plugin?("vagrant-aws") 
+    abort("Did not detect vagrant-aws plugin... vagrant plugin install vagrant-aws")
+  end
+
+  unless ENV['AWS_KEY'] && ENV['AWS_SECRET'] && ENV['AWS_KEYNAME']
+    abort("$AWS_KEY && $AWS_SECRET && $AWS_KEYNAME should set before...")
+  end
+  FileUtils.cp_r(File.join(File.dirname(__FILE__), "user-data.sampleapp.aws"), File.join(File.dirname(__FILE__), "user-data"), :remove_destination => true)
+end
 
 CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "user-data")
 CONFIG = File.join(File.dirname(__FILE__), "config.rb")
@@ -24,8 +28,6 @@ $num_instances = 3
 $instance_name_prefix = "core"
 $update_channel = "alpha"
 $image_version = "current"
-$enable_serial_logging = false
-$share_home = false
 $vm_gui = false
 $vm_memory = 1024
 $vm_cpus = 1
@@ -113,23 +115,6 @@ Vagrant.configure("2") do |config|
     config.vm.define vm_name = "%s-%02d" % [$instance_name_prefix, i] do |config|
       config.vm.hostname = vm_name
 
-      if $enable_serial_logging
-        config.vm.provider :virtualbox do |vb, override|
-          logdir = File.join(File.dirname(__FILE__), "log")
-          FileUtils.mkdir_p(logdir)
-          serialFile = File.join(logdir, "%s-serial.txt" % vm_name)
-          FileUtils.touch(serialFile)
-          vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
-          vb.customize ["modifyvm", :id, "--uartmode1", serialFile]
-        end
-      end
-
-      if $expose_docker_tcp
-        config.vm.provider :virtualbox do |vb, override|
-          override.vm.network "forwarded_port", guest: 2375, host: ($expose_docker_tcp + i - 1), host_ip: "127.0.0.1", auto_correct: true
-        end
-      end
-
       config.vm.provider :virtualbox do |vb, override|
         $forwarded_ports.each do |guest, host|
           override.vm.network "forwarded_port", guest: guest, host: host, auto_correct: true
@@ -149,10 +134,6 @@ Vagrant.configure("2") do |config|
         $shared_folders.each_with_index do |(host_folder, guest_folder), index|
           override.vm.synced_folder host_folder.to_s, guest_folder.to_s, id: "core-share%02d" % index, nfs: true, mount_options: ['nolock,vers=3,udp']
         end
-
-        if $share_home
-          override.vm.synced_folder ENV['HOME'], ENV['HOME'], id: "home", :nfs => true, :mount_options => ['nolock,vers=3,udp']
-        end
       end
 
       # Copy of the cloud-config to the machine
@@ -160,12 +141,12 @@ Vagrant.configure("2") do |config|
         user_data_specific = "#{CLOUD_CONFIG_PATH}-#{i}"
         require 'yaml'
         data = YAML.load(IO.readlines(CLOUD_CONFIG_PATH)[1..-1].join)
-        #if data['coreos'].key? 'fleet' and i==1
-        #  data['coreos']['fleet']['metadata'] = 'compute=proxy'
-        #end
-        #if data['coreos'].key? 'fleet' and i==2
-        #  data['coreos']['fleet']['metadata'] = 'compute=db'
-        #end
+        if data['coreos'].key? 'fleet' and i==1
+          data['coreos']['fleet']['metadata'] = 'compute=proxy'
+        end
+        if data['coreos'].key? 'fleet' and i==2
+          data['coreos']['fleet']['metadata'] = 'compute=db'
+        end
         yaml = YAML.dump(data)
         File.open(user_data_specific, 'w') do |file|
           file.write("#cloud-config\n\n#{yaml}")

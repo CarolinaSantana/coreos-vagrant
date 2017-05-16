@@ -220,7 +220,7 @@ coreos:
   fleet:
     public-ip: "$public_ipv4"
   flannel:
-    interface: "$private_ipv4"
+    interface: "$public_ipv4"
   units:
   - name: etcd2.service
     command: start
@@ -232,7 +232,7 @@ coreos:
     - name: 50-network-config.conf
       content: |
         [Service]
-        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "172.17.0.0/16", "Backend": { "Type": "udp" } }'
+        ExecStartPre=/usr/bin/etcdctl set /coreos.com/network/config '{ "Network": "10.1.0.0/16" }'
     command: start
     enable: true
   - name: docker-tcp.socket
