@@ -2,9 +2,7 @@
 
 The following insfrastructure will be deploy in AWS public cloud:
 
-![alt tag](https://github.com/carmelocuenca/csantana_project/tfm_doc/images/figures/aws-1-iteration.png?raw=true)
-
- 
+![alt tag](https://github.com/carmelocuenca/csantana_project/blob/master/tfm_doc/images/figures/aws-1-iteration.png?raw=true)
 
 When this infrastructure is deployed, the *some-postgres* container, where the database is hosted, is registered to the DNS server, *skydns*. It uses to store the keys and values. In this way, *some-postgres* can be discovered by the *app-job* containers, one of which, the first one, will create, migrate and feed the database. When the *app-task* containers are started, the application's web servers are registered in etc2. The *confd* container monitors these changes every 5 seconds to update the configuration of *some-nginx* and can resolve them. Because a file is shared between containers, the volume *conf-data* is used. Thus, when a client makes a request via the Internet to *some-nginx*, it can redirect it to one of the *app-task* servers, which will query *skydns* to gets and writes information in the database. The policy to redirect to web servers will be Round Robin, from the first to the last.
 
