@@ -1,6 +1,6 @@
 # Version 1.3 CoreOS Vagrant deploying sample app Ruby Application in Amazon Web Services (AWS) or VirtualBox
 
-The following insfrastructure will be deploy in AWS public cloud:
+The following insfrastructure will be deploy in AWS public cloud. The same to VirtualBox:
 
 ![alt tag](https://github.com/carmelocuenca/csantana_project/blob/master/tfm_doc/images/figures/aws-1-iteration.png?raw=true)
 
@@ -111,9 +111,13 @@ Check the answer from web servers:
  
     docker logs app-task
 
+## Deploy in VirtualBox
+
 To deploy in VirtualBox:
 
     vagrant up
+
+*Vagrantfile* has been configured to uses the *user-data* AWS version when this provider is choosen. This *cloud-config* is called *user-data.sampleapp.box*.
 
 Same tests can be applied.
 
